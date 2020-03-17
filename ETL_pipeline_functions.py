@@ -4,34 +4,48 @@ import requests, json, csv
 from datetime import datetime, timedelta
 import time
 
-def week_ago():
-    now = datetime.now()
-    last_week = now - timedelta(weeks = 1)
-    return last_week
+def last_date():
+    with open('activities.csv', 'r') as f:
+        lines = f.read().splitlines()
+        first_line = lines[0].split(',')
+        last_line = lines[-1].split(',')
+        last_line_dict = dict(list(zip(first_line, last_line)))
+        last_date = last_line_dict['start_date']
+        f.close()
+    return last_date
 
-def iso_8601_to_unix(iso_8601_date):
+def iso_8601_to_unix(date_string):
+    iso_8601_date = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%SZ")
     date_tuple = iso_8601_date.timetuple()
     unix_date = int(time.mktime(date_tuple))
     return unix_date
 
-def token_exchange():
-    api_credentials_file = open('.secret/strava_api_credentials.json', 'r')
-    api_credentials = json.load(api_credentials_file)
-    client_id = api_credentials['client_id']
-    client_secret = api_credentials['client_secret']
-    refresh_token = api_credentials['refresh_token']
-    api_credentials_file.close()
+def strava_token_exchange():
+    with open('.secret/strava_api_credentials.json', 'r') as api_credentials_file:
+        api_credentials = json.load(api_credentials_file)
+        client_id = api_credentials['client_id']
+        client_secret = api_credentials['client_secret']
+        refresh_token = api_credentials['refresh_token']
+        api_credentials_file.close()
+
     req = requests.post("https://www.strava.com/oauth/token?client_id={}&client_secret={}&refresh_token={}&grant_type=refresh_token".format(client_id, client_secret, refresh_token)).json()
     api_credentials['access_token'] = req['access_token']
     api_credentials['refresh_token'] = req['refresh_token']
-    api_credentials_file = open('.secret/strava_api_credentials.json', 'w')
-    json.dump(api_credentials, api_credentials_file)
-    api_credentials_file.close()
+
+    with open('.secret/strava_api_credentials.json', 'w') as api_credentials_file:
+        json.dump(api_credentials, api_credentials_file)
+        api_credentials_file.close()
+        
     return api_credentials
 
-def request_activities(start_date):
+def ds_key_getter():
+    with open('.secret/ds_api_credentials.json', 'r') as ds_credentials_file:
+        ds_key = json.load(ds_credentials_file)['key']
+        ds_credentials_file.close() 
+    return ds_key
+
+def request_activities(start_date, access_token):
     url = "https://www.strava.com/api/v3/athlete/activities"
-    access_token = token_exchange()['access_token']
     headers = {"Authorization": "Bearer {}".format(access_token)}
     params = {'after': start_date}
     req = requests.get(url, headers = headers, params = params).json()
@@ -55,19 +69,21 @@ def request_activities(start_date):
         activities.append(activity_info)
     return activities
 
-def request_weather(activity_ids):
+def request_weather(activity_ids, access_token):
+
     strava_url = "https://www.strava.com/api/v3/activities"
-    access_token = token_exchange()['access_token']
-    headers = {"Authorization": "Bearer {}".format(access_token)}
+    strava_headers = {"Authorization": "Bearer {}".format(access_token)}
+
+
+    ds_url = "https://api.darksky.net/forecast"
+    ds_key = ds_key_getter()
+    exclude_blocks = "minutely,hourly,daily,alerts"
+
     weather_list = []
     for activity_id in activity_ids:
-        strava_req = requests.get("{}/{}".format(strava_url, activity_id), headers = headers).json()
 
-        ds_url = "https://api.darksky.net/forecast"
-        ds_credentials_file = open('.secret/ds_api_credentials.json', 'r') 
-        ds_key = json.load(ds_credentials_file)['key']
-        ds_credentials_file.close()
-        exclude_blocks = "minutely,hourly,daily,alerts"
+        strava_req = requests.get("{}/{}".format(strava_url, activity_id), headers = strava_headers).json()
+
         time, lat_lon = strava_req['start_date'], strava_req.get('start_latlng')
 
         if lat_lon is None:
@@ -86,9 +102,8 @@ def request_weather(activity_ids):
                 weather_list.append(weather_info)
     return weather_list
 
-def request_splits(activity_ids):
+def request_splits(activity_ids, access_token):
     url = "https://www.strava.com/api/v3/activities"
-    access_token = token_exchange()['access_token']
     headers = {"Authorization": "Bearer {}".format(access_token)}
     activity_splits = []
     for activity_id in activity_ids:
@@ -108,9 +123,8 @@ def request_splits(activity_ids):
             activity_splits.append(split_info)
     return activity_splits
 
-def request_zones(activity_ids):
+def request_zones(activity_ids, access_token):
     url = "https://www.strava.com/api/v3/activities"
-    access_token = token_exchange()['access_token']
     headers = {"Authorization": "Bearer {}".format(access_token)}
     activity_zones = []
     for activity_id in activity_ids:
@@ -138,8 +152,15 @@ def request_zones(activity_ids):
     return activity_zones
 
 def append_requests(requests, file_name):
-    with open(file_name, 'r') as r, open(file_name, 'a', newline = '') as a:
+    n = len(requests)
+
+    with open(file_name, 'r') as r:
         request_fields = next(csv.reader(r))
+        r.close()
+    with open(file_name, 'a', newline = '') as a:
         csv_writer = csv.DictWriter(a, fieldnames = request_fields, restval = 0)
         csv_writer.writerows(requests)
-    return print("{} appended".format(file_name))
+        a.close()
+
+    print("{} appended".format(file_name))
+    return n
