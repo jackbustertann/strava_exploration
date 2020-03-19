@@ -55,17 +55,17 @@ def request_activities(start_date, access_token):
         activity_info['activity_name'] = activity['name']
         activity_info['activity_id'] = activity['id']
         activity_info['activity_type'] = activity['type']
-        activity_info['distance'] = activity.get('distance', np.nan)
-        activity_info['time'] = activity.get('elapsed_time', np.nan)
-        activity_info['elevation_gain'] = activity.get('total_elevation_gain', np.nan)
-        activity_info['kudos'] = activity.get('kudos_count', np.nan)
-        activity_info['start_date'] = activity.get('start_date', np.nan)
-        activity_info['average_speed'] = activity.get('average_speed', np.nan)
-        activity_info['max_speed'] = activity.get('max_speed', np.nan)
-        activity_info['average_cadence'] = activity.get('average_cadence', np.nan)
-        activity_info['average_hr'] = activity.get('average_heartrate', np.nan)
-        activity_info['max_hr'] = activity.get('max_heartrate', np.nan)
-        activity_info['suffer_score'] = activity.get('suffer_score', np.nan)
+        activity_info['distance'] = activity.get('distance', 0)
+        activity_info['time'] = activity.get('elapsed_time', 0)
+        activity_info['elevation_gain'] = activity.get('total_elevation_gain', 0)
+        activity_info['kudos'] = activity.get('kudos_count', 0)
+        activity_info['start_date'] = activity.get('start_date', 0)
+        activity_info['average_speed'] = activity.get('average_speed', 0)
+        activity_info['max_speed'] = activity.get('max_speed', 0)
+        activity_info['average_cadence'] = activity.get('average_cadence', 0)
+        activity_info['average_hr'] = activity.get('average_heartrate', 0)
+        activity_info['max_hr'] = activity.get('max_heartrate', 0)
+        activity_info['suffer_score'] = activity.get('suffer_score', 0)
         activities.append(activity_info)
     return activities
 
@@ -96,9 +96,9 @@ def request_weather(activity_ids, access_token):
             else:
                 weather_info = {}
                 weather_info['activity_id'] = activity_id
-                weather_info['temp'] = ds_current.get('temperature', np.nan)
-                weather_info['wind_speed'] = ds_current.get('windSpeed', np.nan)
-                weather_info['weather'] = ds_current.get('icon', np.nan)
+                weather_info['temp'] = ds_current.get('temperature', 0)
+                weather_info['wind_speed'] = ds_current.get('windSpeed', 0)
+                weather_info['weather'] = ds_current.get('icon', 'unknown')
                 weather_list.append(weather_info)
     return weather_list
 
@@ -112,14 +112,14 @@ def request_splits(activity_ids, access_token):
             split_info = {}
             split_info['activity_id'] = activity_id
             split_info['split_index'] = split['split']
-            split_info['split_time'] = split.get('elapsed_time', np.nan)
-            split_info['split_distance'] = split.get('distance', np.nan)
-            split_info['split_elevation_gain'] = split.get('total_elevation_gain', np.nan)
-            split_info['split_average_speed'] = split.get('average_speed', np.nan)
-            split_info['split_max_speed'] = split.get('max_speed', np.nan)
-            split_info['split_average_hr'] = split.get('average_heartrate', np.nan)
-            split_info['split_max_hr'] = split.get('max_heartrate', np.nan)
-            split_info['split_average_cadence'] = split.get('average_cadence', np.nan)
+            split_info['split_time'] = split.get('elapsed_time', 0)
+            split_info['split_distance'] = split.get('distance', 0)
+            split_info['split_elevation_gain'] = split.get('total_elevation_gain', 0)
+            split_info['split_average_speed'] = split.get('average_speed', 0)
+            split_info['split_max_speed'] = split.get('max_speed', 0)
+            split_info['split_average_hr'] = split.get('average_heartrate', 0)
+            split_info['split_max_hr'] = split.get('max_heartrate', 0)
+            split_info['split_average_cadence'] = split.get('average_cadence', 0)
             activity_splits.append(split_info)
     return activity_splits
 
@@ -158,7 +158,7 @@ def append_requests(requests, file_name):
         request_fields = next(csv.reader(r))
         r.close()
     with open(file_name, 'a', newline = '') as a:
-        csv_writer = csv.DictWriter(a, fieldnames = request_fields, restval = 0)
+        csv_writer = csv.DictWriter(a, fieldnames = request_fields)
         csv_writer.writerows(requests)
         a.close()
 
