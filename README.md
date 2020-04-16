@@ -11,6 +11,8 @@ The dataset used for this project consists of performance metrics collected usin
 
 **ETL Pipeline**
 
+<img src="/images/ETL_pipeline.png" /> <br/><br/>
+
 1. Complete an activity using Garmin watch. <br/><br/>
 2. Sync watch with Garmin Connect app. <br/><br/>
 3. Upload activity to Strava app. <br/><br/>
@@ -25,8 +27,6 @@ The dataset used for this project consists of performance metrics collected usin
 11. Connect to PostgreSQL database. <br/><br/>
 12. Insert data into corresponding tables. <br/><br/>
 13. Update request log with request info.
-
-<img src="/images/ETL_pipeline.png" /> <br/><br/>
 
 **Database Schema**
 
