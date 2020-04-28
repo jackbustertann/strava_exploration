@@ -2,6 +2,7 @@
 
 ## Motivation
 
+The motivation for this project is to create a series of interactive dashboards using my personal running data to inform my training ahead of future running events. 
 
 ## Data Collection
 
