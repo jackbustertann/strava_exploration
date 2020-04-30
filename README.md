@@ -12,7 +12,7 @@ The dataset used for this project consists of performance metrics collected usin
 
 **ETL Pipeline**
 
-<img src="/images/ETL_pipeline.png" /> <br/><br/>
+<img src="/images/ETL_pipeline.png" width="500"/> <br/><br/>
 
 1. Complete an activity using Garmin watch. <br/><br/>
 2. Sync watch with Garmin Connect app. <br/><br/>
@@ -32,4 +32,14 @@ The dataset used for this project consists of performance metrics collected usin
 **Database Schema**
 
 <img src="/images/database_schema.png"/> <br/><br/>
+
+## EDA
+
+<img src="/images/weekly_milage.png"/> <br/><br/>
+
+<img src="/images/running_habits.png"/> <br/><br/>
+
+<img src="/images/running_intensity.png"/> <br/><br/>
+
+<img src="/images/days_of_week.png"/> <br/><br/>
 
