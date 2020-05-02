@@ -14,20 +14,7 @@ The dataset used for this project consists of performance metrics collected usin
 
 <img src="/images/ETL_pipeline.png" width="500"/> <br/><br/>
 
-1. Complete an activity using Garmin watch. <br/><br/>
-2. Sync watch with Garmin Connect app. <br/><br/>
-3. Upload activity to Strava app. <br/><br/>
-4. Start CRON task at 10am, every morning. <br/><br/>
-5. Extract most recent date from request log file. <br/><br/>
-6. Exchange refresh token for new access token (OAuth 2.0). <br/><br/>
-7. Make request to activities endpoint for Strava API. <br/><br/>
-8. If appropriate, make another request to Google Geocoding API. <br/><br/>
-9. Store activity id's from json response. <br/><br/>
-10. Make requests to laps and zones endpoints for Strava API. <br/><br/>
-11. Clean and format json reponses. <br/><br/>
-11. Connect to PostgreSQL database. <br/><br/>
-12. Insert data into corresponding tables. <br/><br/>
-13. Update request log with request info.
+<img src="/images/ETL_pipeline_2.png" width = "500"/> <br/><br/>
 
 **Database Schema**
 
