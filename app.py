@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import psycopg2	
+import psycopg2, json
 import ETL_pipeline_functions
 
 import plotly.graph_objects as go
@@ -19,7 +19,12 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 # creating a connection to postgresql database
 
-conn = psycopg2.connect(host="localhost", database="running_data", user="jacktann", password="Buster#19")
+with open('.secret/postgres_credentials.json', 'r') as r:
+    postgres_credentials = json.load(r)
+    user = postgres_credentials['user']
+    password = postgres_credentials['password']
+
+conn = psycopg2.connect(host="localhost", database="running_data", user=user, password=password)
 
 # dataframe for first graph
 
