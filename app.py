@@ -13,6 +13,9 @@ import plotly.express as px
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+from dash.dependencies import Input, Output
+
+from sklearn.neighbors import KernelDensity
 
 # setting style for app using CSS style sheet
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -40,6 +43,7 @@ norm_constant = sum([exp_factor ** -i for i in range(1,7)])
 exp_weights = [exp_factor ** -i / norm_constant for i in range(1,7)] 
 
 all_weights = [(i, 1/6, (7-i)/21, exp_factor ** -i / norm_constant) for i in range(1,7)] 
+
 values = str(all_weights)[1:-1]
 
 ### executing query
@@ -263,258 +267,531 @@ df_z5 = df_3.loc[df_3['zone'] == 5]
 y_tickvals_3 = list(range(0, 120, 20))
 y_ticktext_3 = [str(y) + '%' for y in y_tickvals_3]
 
+## SQL query for fourth figure
+### executing query
+df_4 = pd.read_sql_query("""
+WITH sub_1 AS(
+SELECT
+    timestamp,
+    location,
+    chip_time,
+    position,
+    split_index,
+    b.distance AS distance,
+    b.time AS split_time,
+    SUM(b.time) OVER(PARTITION BY timestamp) AS total_time
+FROM activities a
+RIGHT JOIN activity_splits b
+ON a.id = b.activity_id
+WHERE event_type = 'PR' AND split_index <= 5 AND timestamp::date != '2019-11-09'),
+sub_2 AS(
+SELECT
+    timestamp,
+    location,
+    chip_time, 
+    split_index,
+    distance,
+    CASE 
+        WHEN split_index = 5 THEN split_time + (chip_time - total_time) 
+        ELSE split_time 
+        END AS split_time
+FROM sub_1)
+SELECT
+    timestamp,
+    location,
+    chip_time,
+    split_index,
+    ((1/distance) * split_time)::int AS split_time
+FROM sub_2;
+""", conn)
+
+### converting seconds in MM:SS format for tick text
+def seconds_to_MMSS(total_seconds):
+    minutes = total_seconds // 60
+    seconds = total_seconds - (minutes * 60)
+    return '{}:{:02}'.format(minutes, seconds)
+
+### storing tick values and text
+x_tickvals_4 = list(range(190, 250, 10))
+x_ticktext_4 = [seconds_to_MMSS(x) for x in x_tickvals_4]
+y_tickvals_4 = list(np.arange(0, 1, 0.02))
+y_ticktext_4 = ['Split ' + str(i) if i <= 5 else ' ' for i in range(1, 9)]
+
+## SQL query for fifth figure
+### executing query
+df_5 = pd.read_sql_query("""
+WITH sub_1 AS(
+SELECT
+    timestamp,
+    location,
+    chip_time,
+    position,
+    MIN(chip_time) OVER(PARTITION BY location ORDER BY timestamp ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS best_time
+FROM activities
+WHERE event_type = 'PR')
+SELECT 
+    ROW_NUMBER() OVER(PARTITION BY location ORDER BY timestamp) AS n,
+    timestamp::date AS date,
+    location,
+    chip_time,
+    position,
+    coalesce(best_time, chip_time) - chip_time AS time_diff
+FROM sub_1
+ORDER BY 1;
+""", conn)
+
+# re-formatting chip times from seconds to MM:SS
+df_5['chip_time'] = df_5['chip_time'].map(lambda x: seconds_to_MMSS(x))
+
+# storing tick values and text
+y_tickvals_5 = list(range(-80, 40, 20))
+y_ticktext_5 = [str(-y) + 's' for y in y_tickvals_5]
+
 # creating layout using dash core and dash html components
 app.layout = html.Div(children=[
-
     ## main header
-    html.H1(children='''
-        Strava Data Exploration
-    '''),
+    html.H1(children='Strava Data Exploration', style = {'textAlign': 'center'}
+    ),
+    ## main header
+    html.H3(children='Jack Tann', style = {'textAlign': 'center'}
+    ),
+    ## tabs
+    dcc.Tabs([
+        ## first tab
+        dcc.Tab(label='Trends', children=[
+            ### header for first figure
+            html.H3(children='''
+                1) How has my weekly distance changing over time?
+            '''), 
+            ### description for first figure
+            html.Div(children='''
+                A line graph showing the 6-week moving average of my running distance for each week between January 2019 and Present.
+            '''),
+            ### first figure
+            dcc.Graph(
+                id='weekly-distance',
+                figure={
+                    'data': [
+                        #### weekly distance scatter plot
+                        go.Scatter(
+                            name='Week Distance',
+                            x=df_1.week,
+                            y=df_1.total_distance,
+                            mode='markers',
+                            marker = {'color': 'darkblue'},
+                            hovertemplate='<b>%{y:}km</b>'
+                        ),
+                        #### 6-week moving average line
+                        go.Scatter(
+                            name='6-Week Moving Average',
+                            x = df_1.week, 
+                            y = df_1.moving_avg, 
+                            mode='lines',  
+                            line = {'color': 'grey'}, 
+                            hovertemplate='<b>%{y:}km</b>'),
+                        #### upper bound line
+                        go.Scatter(
+                            name='Upper Bound',
+                            x = df_1.week, 
+                            y = df_1.upper_bound, 
+                            mode = 'lines', 
+                            line = {'color': 'rgba(204, 204, 204, 0)'}, 
+                            fill = None,
+                            hoverinfo='skip'),
+                        #### lower bound line
+                        go.Scatter(
+                            name='Lower Bound',
+                            x = df_1.week, 
+                            y = df_1.lower_bound, 
+                            mode = 'lines', 
+                            line = {'color': 'rgba(204, 204, 204, 0)'}, 
+                            fill = 'tonexty', 
+                            hoverinfo='skip')
+                    ],
+                    'layout': go.Layout(
+                        xaxis={'title': {'text': '<b>Date</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False},
+                        yaxis={'title': {'text': '<b>Distance</b>', 'font': {'size': 15}, 'standoff': 30}, 'tickmode': 'array', 'tickvals': y_tickvals_1, 'ticktext': y_ticktext_1, 'zeroline': False},
+                        margin={'l': 60, 'b': 40, 't': 20, 'r': 10},
+                        hovermode='x',
+                        showlegend=False,
+                        #### annotations for key events
+                        annotations=[
+                            {'x': df_1.week[0],'y': df_1.moving_avg[0], 'xref': 'x', 'yref': 'y', 'text': 'Marathon Training<br>Starts', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}},
+                            {'x': df_1.week[14],'y': df_1.moving_avg[14], 'xref': 'x', 'yref': 'y', 'text': 'Marathon Week', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}},
+                            {'x': df_1.week[41],'y': df_1.moving_avg[41], 'xref': 'x', 'yref': 'y', 'text': 'DS Course<br>Starts', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': -40, 'font': {'size': 8}},
+                            {'x': df_1.week[56],'y': df_1.moving_avg[56], 'xref': 'x', 'yref': 'y', 'text': 'DS Course<br>Ends', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}},
+                            {'x': df_1.week[64],'y': df_1.moving_avg[64], 'xref': 'x', 'yref': 'y', 'text': 'Lockdown<br>Starts', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}}
+                            ]
+                    )
+                }
+            ),
+            ### header for second figure
+            html.H3(children='''
+                2) How have my running habits changing over time?
+            '''), 
+            ### description for second figure
+            html.Div(children='''
+                A bump chart showing how my runs were distributed between run types for each month between January 2019 and Present.
+            '''),
+            ### second figure
+            dcc.Graph(
+                id='running-habits',
+                figure={
+                    'data': [
+                        #### number of runs per month lines
+                        ##### short run line
+                        go.Scatter(
+                            name = 'Short run',
+                            x=df_S.month, 
+                            y=df_S.n_runs, 
+                            mode = 'lines', 
+                            line = dict(shape = 'spline', width = 15, color = 'rgba(0, 82, 204, 0.5)'),
+                            hovertemplate='<b>%{y:} runs</b>'),
+                        ##### mid run line
+                        go.Scatter(
+                            name = 'Mid run',
+                            x=df_M.month, 
+                            y=df_M.n_runs,
+                            mode = 'lines', 
+                            line = dict(shape = 'spline', width = 15, color = 'rgba(204, 0, 0, 0.5)'),
+                            hovertemplate='<b>%{y:} runs</b>'),
+                        ##### long run line
+                        go.Scatter(
+                            name = 'Long run',
+                            x=df_L.month, 
+                            y=df_L.n_runs,
+                            mode = 'lines', 
+                            line = dict(shape = 'spline', width = 15, color = 'rgba(0, 153, 51, 0.5)'),
+                            hovertemplate='<b>%{y:} runs</b>'),
+                        ##### intervals line
+                        go.Scatter(
+                            name = 'Intervals',
+                            x=df_I.month, 
+                            y=df_I.n_runs,
+                            mode = 'lines', 
+                            line = dict(shape = 'spline', width = 15, color = 'rgba(204, 0, 204, 0.5)'),
+                            hovertemplate='<b>%{y:} runs</b>'),
+                        #### start and end markers
+                        ##### short run markers
+                        go.Scatter(
+                            x = x_markers_S, 
+                            y = y_markers_S, 
+                            mode = 'markers + text', 
+                            text = ['', list(df_S.n_runs)[-1]], 
+                            textfont = dict(color = 'white'), 
+                            marker = dict(size = 25, color = 'rgb(0, 82, 204)'), 
+                            showlegend = False, 
+                            hoverinfo = 'skip'),
+                        ##### mid run markers
+                        go.Scatter(
+                            x = x_markers_M, 
+                            y = y_markers_M, 
+                            mode = 'markers + text', 
+                            text = ['', list(df_M.n_runs)[-1]], 
+                            textfont = dict(color = 'white'), 
+                            marker = dict(size = 25, color = 'rgb(204, 0, 0)'), 
+                            showlegend = False, 
+                            hoverinfo = 'skip'),
+                        ##### long run markers
+                        go.Scatter(
+                            x = x_markers_L, 
+                            y = y_markers_L, 
+                            mode = 'markers + text', 
+                            text = ['', list(df_L.n_runs)[-1]],  
+                            textfont = dict(color = 'white'), 
+                            marker = dict(size = 25, color = 'rgb(0, 153, 51)'), 
+                            showlegend = False, 
+                            hoverinfo = 'skip'),
+                        ##### intervals markers
+                        go.Scatter(
+                            x = x_markers_I, 
+                            y = y_markers_I, 
+                            mode = 'markers + text', 
+                            text = ['', list(df_I.n_runs)[-1]], 
+                            textfont = dict(color = 'white'), 
+                            marker = dict(size = 25, color = 'rgb(204, 0, 204)'), 
+                            showlegend = False, 
+                            hoverinfo = 'skip')
+                    ],
+                    'layout': go.Layout(
+                        xaxis={'title': {'text': '<b>Date</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False},
+                        yaxis={'title': {'text': '<b>Number of Runs</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False},
+                        margin={'l': 60, 'b': 40, 't': 20, 'r': 10},
+                        hovermode='x'
+                    )
+                }
+            ),
 
-    ## header for first figure
-    html.H2(children='''
-        1) How has my weekly distance changing over time?
-    '''), 
+            ### header for third figure
+            html.H3(children='''
+                3) How has the intensity of my training changed over time?
+            '''), 
+            ### description for third figure
+            html.Div(children='''
+                A stacked area chart showing how my time was distributed between heart rate zones for each moving 6-week period between January 2019 and Present.
+            '''),
+            ### third figure
+            dcc.Graph(
+                id='running-intensity',
+                figure={
+                    'data': [
+                        #### 6-week moving average time in zone lines
+                        ##### HR zone 1 line
+                        go.Scatter(
+                            name = 'Zone 1', 
+                            x=df_z1.week, 
+                            y=df_z1.moving_percentage,
+                            mode='lines', 
+                            stackgroup = 1, 
+                            line_color = 'rgba(255, 230, 230, 0)',
+                            hoverinfo = 'x+y',
+                            hovertemplate='<b>%{y:}%</b>'),
+                        ##### HR zone 2 line
+                        go.Scatter(
+                            name = 'Zone 2', 
+                            x=df_z2.week, 
+                            y=df_z2.moving_percentage,
+                            mode='lines', 
+                            stackgroup = 1, 
+                            line_color = 'rgba(255, 153, 153, 0)',
+                            hoverinfo = 'x+y',
+                            hovertemplate='<b>%{y:}%</b>'),
+                        ##### HR zone 3 line
+                        go.Scatter(
+                            name = 'Zone 3', 
+                            x=df_z3.week, 
+                            y=df_z3.moving_percentage,
+                            mode='lines', 
+                            stackgroup = 1, 
+                            line_color = 'rgba(255, 77, 77, 0)',
+                            hoverinfo = 'x+y',
+                            hovertemplate='<b>%{y:}%</b>'),
+                        ##### HR zone 4 line
+                        go.Scatter(
+                            name = 'Zone 4', 
+                            x=df_z4.week, 
+                            y=df_z4.moving_percentage,
+                            mode='lines', 
+                            stackgroup = 1, 
+                            line_color = 'rgba(255, 0, 0, 0)',
+                            hoverinfo = 'x+y',
+                            hovertemplate='<b>%{y:}%</b>'),
+                        ##### HR zone 5 line
+                        go.Scatter(
+                            name = 'Zone 5', 
+                            x=df_z5.week, 
+                            y=df_z5.moving_percentage,
+                            mode='lines', 
+                            stackgroup = 1, 
+                            line_color = 'rgba(179, 0, 0, 0)',
+                            hoverinfo = 'x+y',
+                            hovertemplate='<b>%{y:}%</b>')
+                    ],
+                    'layout': go.Layout(
+                        xaxis={'title': {'text': '<b>Date</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False, 'zeroline': False},
+                        yaxis={'title': {'text': '<b>Percentage of Time</b>', 'font': {'size': 15}, 'standoff': 30}, 'range': (0, 100), 'tickvals': y_tickvals_3, 'ticktext': y_ticktext_3, 'showgrid': False, 'zeroline': False},
+                        margin={'l': 60, 'b': 40, 't': 20, 'r': 10},
+                        hovermode='x'
+                    )
+                }
+            )
+        ]),
+        ## second tab
+        dcc.Tab(label='Parkrun Performance', children=[
+            ### dropdown header
+            html.H6(children='Choose a Location:'
+            ),
+            ### location dropdown
+            dcc.Dropdown(
+                id='location-dropdown',
+                options=[{'label': 'Panshanger', 'value': 'Hertford'}, {'label': 'Ellenbrook', 'value': 'Hatfield'}],
+                value='Hatfield'
+            ),
+            ### header for fourth figure
+            html.H3(children='Are my finish times getting faster?'
+            ),
+            ### description for fourth figure
+            html.Div(children='A lollipop chart showing how my finish times compare with my moving personal best for all PR events at chosen location.'
+            ),
+            ### fourth figure
+            dcc.Graph(id='pr-times'
+            ),
+            ### header for fifth figure
+            html.H3(children='How are my km splits distributed?'
+            ),
+            ### description for fifth figure
+            html.Div(children='A ridgeline plot showing the distribution of km split times for all PR events at chosen location.'
+            ),
+            ### fourth figure
+            dcc.Graph(id='km-splits'
+            )
+        ])
+    ])
+])
 
-    ## description for first figure
-    html.Div(children='''
-        A line graph showing the 6-week moving average of my running distance for each week between January 2019 and Present.
-    '''),
+@app.callback(
+    Output('km-splits', 'figure'),
+    [Input('location-dropdown', 'value')])
 
-    ## first figure
-    dcc.Graph(
-        id='weekly-distance',
-        figure={
+def update_figure(selected_location):
+
+    df_4_filtered = df_4[df_4.location == selected_location]
+
+    split_kdes = []
+    for i in range(1, 6):
+        split_hrs = np.array(df_4_filtered.loc[df_4_filtered['split_index'] == i]['split_time']).reshape(-1, 1)
+        kde = KernelDensity(kernel='gaussian', bandwidth=5).fit(split_hrs)
+        hr_range = np.array(range(195, 241)).reshape(-1,1)
+        split_kde = list(np.exp(kde.score_samples(hr_range)))
+        split_kdes.append(split_kde)
+
+    return {
             'data': [
-                ### weekly distance scatter plot
+
                 go.Scatter(
-                    name='Week Distance',
-                    x=df_1.week,
-                    y=df_1.total_distance,
-                    mode='markers',
-                    marker = {'color': 'darkblue'},
-                    hovertemplate='<b>%{y:}km</b>'
-                ),
-                ### 6-week moving average line
-                go.Scatter(
-                    name='6-Week Moving Average',
-                    x = df_1.week, 
-                    y = df_1.moving_avg, 
-                    mode='lines',  
-                    line = {'color': 'grey'}, 
-                    hovertemplate='<b>%{y:}km</b>'),
-                ### upper bound line
-                go.Scatter(
-                    name='Upper Bound',
-                    x = df_1.week, 
-                    y = df_1.upper_bound, 
+                    x = [190, 240], 
+                    y = [0.08, 0.08], 
                     mode = 'lines', 
-                    line = {'color': 'rgba(204, 204, 204, 0)'}, 
-                    fill = None,
-                    hoverinfo='skip'),
-                ### lower bound line
+                    line = {'color': 'rgba(0, 153, 204, 0)'},
+                    hoverinfo = 'skip'),
+
                 go.Scatter(
-                    name='Lower Bound',
-                    x = df_1.week, 
-                    y = df_1.lower_bound, 
-                    mode = 'lines', 
-                    line = {'color': 'rgba(204, 204, 204, 0)'}, 
+                    x = list(range(190, 241)), 
+                    y = [0.08 + i for i in split_kdes[0]], 
+                    line = {'color': 'rgb(0, 153, 204)'}, 
                     fill = 'tonexty', 
-                    hoverinfo='skip')
+                    hoverinfo = 'skip'),
+                
+                go.Scatter(
+                    x = [190, 240], 
+                    y = [0.06, 0.06], 
+                    mode = 'lines', 
+                    line = {'color': 'rgba(0, 153, 204, 0)'},
+                    hoverinfo = 'skip'),
+
+                go.Scatter(
+                    x = list(range(190, 241)), 
+                    y = [0.06 + i for i in split_kdes[1]], 
+                    line = {'color': 'rgb(0, 153, 204)'}, 
+                    fill = 'tonexty',
+                    hoverinfo = 'skip'),
+                
+                go.Scatter(
+                    x = [190, 240], 
+                    y = [0.04, 0.04], 
+                    mode = 'lines', 
+                    line = {'color': 'rgba(0, 153, 204, 0)'},
+                    hoverinfo = 'skip'),
+
+                go.Scatter(
+                    x = list(range(190, 241)), 
+                    y = [0.04 + i for i in split_kdes[2]], 
+                    line = {'color': 'rgb(0, 153, 204)'}, 
+                    fill = 'tonexty',
+                    hoverinfo = 'skip'),
+                
+                go.Scatter(
+                    x = [190, 240], 
+                    y = [0.02, 0.02], 
+                    mode = 'lines', 
+                    line = {'color': 'rgba(0, 153, 204, 0)'},
+                    hoverinfo = 'skip'),
+
+                go.Scatter(
+                    x = list(range(190, 241)), 
+                    y = [0.02 + i for i in split_kdes[3]], 
+                    line = {'color': 'rgb(0, 153, 204)'}, 
+                    fill = 'tonexty',
+                    hoverinfo = 'skip'),
+                
+                go.Scatter(
+                    x = [190, 240], 
+                    y = [0, 0], 
+                    mode = 'lines', 
+                    line = {'color': 'rgba(0, 153, 204, 0)'},
+                    hoverinfo = 'skip'),
+
+                go.Scatter(
+                    x = list(range(190, 241)), 
+                    y = [0 + i for i in split_kdes[0]], 
+                    line = {'color': 'rgb(0, 153, 204)'}, 
+                    fill = 'tonexty',
+                    hoverinfo = 'skip'),
+
             ],
             'layout': go.Layout(
-                xaxis={'title': {'text': '<b>Date</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False},
-                yaxis={'title': {'text': '<b>Distance</b>', 'font': {'size': 15}, 'standoff': 30}, 'tickmode': 'array', 'tickvals': y_tickvals_1, 'ticktext': y_ticktext_1, 'zeroline': False},
+                xaxis={'title': {'text': '<b>Split Time</b>', 'font': {'size': 15}, 'standoff': 30}, 'tickvals': x_tickvals_4, 'ticktext': x_ticktext_4, 'showgrid': False, 'zeroline': False},
+                yaxis={'tickvals': y_tickvals_4, 'ticktext': y_ticktext_4, 'showgrid': False, 'zeroline': False},
                 margin={'l': 60, 'b': 40, 't': 20, 'r': 10},
                 hovermode='x',
-                showlegend=False,
-                ### annotations for key events
-                annotations=[
-                    {'x': df_1.week[0],'y': df_1.moving_avg[0], 'xref': 'x', 'yref': 'y', 'text': 'Marathon Training<br>Starts', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}},
-                    {'x': df_1.week[14],'y': df_1.moving_avg[14], 'xref': 'x', 'yref': 'y', 'text': 'Marathon Week', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}},
-                    {'x': df_1.week[41],'y': df_1.moving_avg[41], 'xref': 'x', 'yref': 'y', 'text': 'DS Course<br>Starts', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': -40, 'font': {'size': 8}},
-                    {'x': df_1.week[56],'y': df_1.moving_avg[56], 'xref': 'x', 'yref': 'y', 'text': 'DS Course<br>Ends', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}},
-                    {'x': df_1.week[64],'y': df_1.moving_avg[64], 'xref': 'x', 'yref': 'y', 'text': 'Lockdown<br>Starts', 'showarrow': True, 'arrowhead': 0, 'ax': 0, 'ay': 40, 'font': {'size': 8}}
-                    ]
+                showlegend = False
             )
         }
-    ),
 
-    ## header for second figure
-    html.H2(children='''
-        2) How have my running habits changing over time?
-    '''), 
+@app.callback(
+    Output('pr-times', 'figure'),
+    [Input('location-dropdown', 'value')])
+    
+def update_figure(selected_location):
 
-    ## description for second figure
-    html.Div(children='''
-        A bump chart showing how my runs were distributed between run types for each month between January 2019 and Present.
-    '''),
+    df_5_filtered = df_5[df_5.location == selected_location]
 
-    ## second figure
-    dcc.Graph(
-        id='running-habits',
-        figure={
+    stems = list(df_5_filtered['time_diff'].map(lambda x: x - 1.5 if x > 0 else (x + 1.5 if x < 0 else 0)))
+
+    first_pos = df_5_filtered.loc[df_5_filtered['position'] == 1] 
+    second_pos = df_5_filtered.loc[df_5_filtered['position'] == 2] 
+    third_pos = df_5_filtered.loc[df_5_filtered['position'] == 3] 
+    other_pos = df_5_filtered.loc[df_5_filtered['position'] >= 4] 
+
+    return {
             'data': [
-                ### number of runs per month lines
-                #### short run line
+
                 go.Scatter(
-                    name = 'Short run',
-                    x=df_S.month, 
-                    y=df_S.n_runs, 
-                    mode = 'lines', 
-                    line = dict(shape = 'spline', width = 15, color = 'rgba(0, 82, 204, 0.5)'),
-                    hovertemplate='<b>%{y:} runs</b>'),
-                #### mid run line
+                    name = '1st',
+                    x = first_pos.n, 
+                    y = first_pos.time_diff, 
+                    mode = 'markers',
+                    marker = {'size': 15, 'color': 'rgb(255, 215, 0)'},
+                    customdata = first_pos,
+                    hovertemplate = 'Date: %{customdata[1]}<br>Finish time: %{customdata[3]}'),
+
                 go.Scatter(
-                    name = 'Mid run',
-                    x=df_M.month, 
-                    y=df_M.n_runs,
-                    mode = 'lines', 
-                    line = dict(shape = 'spline', width = 15, color = 'rgba(204, 0, 0, 0.5)'),
-                    hovertemplate='<b>%{y:} runs</b>'),
-                #### long run line
+                    name = '2nd',
+                    x = second_pos.n, 
+                    y = second_pos.time_diff, 
+                    mode = 'markers',
+                    marker = {'size': 15, 'color': 'silver'},
+                    customdata = second_pos,
+                    hovertemplate = 'Date: %{customdata[1]}<br>Finish time: %{customdata[3]}'),
+
                 go.Scatter(
-                    name = 'Long run',
-                    x=df_L.month, 
-                    y=df_L.n_runs,
-                    mode = 'lines', 
-                    line = dict(shape = 'spline', width = 15, color = 'rgba(0, 153, 51, 0.5)'),
-                    hovertemplate='<b>%{y:} runs</b>'),
-                #### intervals line
+                    name = '3rd',
+                    x = third_pos.n, 
+                    y = third_pos.time_diff, 
+                    mode = 'markers',
+                    marker = {'size': 15, 'color': 'rgb(205, 127, 50)'},
+                    customdata = third_pos,
+                    hovertemplate = 'Date: %{customdata[1]}<br>Finish time: %{customdata[3]}'),
+
                 go.Scatter(
-                    name = 'Intervals',
-                    x=df_I.month, 
-                    y=df_I.n_runs,
-                    mode = 'lines', 
-                    line = dict(shape = 'spline', width = 15, color = 'rgba(204, 0, 204, 0.5)'),
-                    hovertemplate='<b>%{y:} runs</b>'),
-                ### start and end markers
-                #### short run markers
-                go.Scatter(
-                    x = x_markers_S, 
-                    y = y_markers_S, 
-                    mode = 'markers + text', 
-                    text = ['', list(df_S.n_runs)[-1]], 
-                    textfont = dict(color = 'white'), 
-                    marker = dict(size = 25, color = 'rgb(0, 82, 204)'), 
-                    showlegend = False, 
-                    hoverinfo = 'skip'),
-                #### mid run markers
-                go.Scatter(
-                    x = x_markers_M, 
-                    y = y_markers_M, 
-                    mode = 'markers + text', 
-                    text = ['', list(df_M.n_runs)[-1]], 
-                    textfont = dict(color = 'white'), 
-                    marker = dict(size = 25, color = 'rgb(204, 0, 0)'), 
-                    showlegend = False, 
-                    hoverinfo = 'skip'),
-                #### long run markers
-                go.Scatter(
-                    x = x_markers_L, 
-                    y = y_markers_L, 
-                    mode = 'markers + text', 
-                    text = ['', list(df_L.n_runs)[-1]],  
-                    textfont = dict(color = 'white'), 
-                    marker = dict(size = 25, color = 'rgb(0, 153, 51)'), 
-                    showlegend = False, 
-                    hoverinfo = 'skip'),
-                #### intervals markers
-                go.Scatter(
-                    x = x_markers_I, 
-                    y = y_markers_I, 
-                    mode = 'markers + text', 
-                    text = ['', list(df_I.n_runs)[-1]], 
-                    textfont = dict(color = 'white'), 
-                    marker = dict(size = 25, color = 'rgb(204, 0, 204)'), 
-                    showlegend = False, 
-                    hoverinfo = 'skip')
+                    name = 'Other',
+                    x = other_pos.n, 
+                    y = other_pos.time_diff, 
+                    mode = 'markers',
+                    marker = {'size': 15, 'color': 'navy'},
+                    customdata = other_pos,
+                    hovertemplate = 'Date: %{customdata[1]}<br>Finish time: %{customdata[3]}')
             ],
             'layout': go.Layout(
-                xaxis={'title': {'text': '<b>Date</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False},
-                yaxis={'title': {'text': '<b>Number of Runs</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False},
+                shapes = [
+                    {'type': 'line', 'xref': 'x', 'yref': 'y', 'x0': list(df_5_filtered.n)[i], 'y0': 0, 'x1': list(df_5_filtered.n)[i], 'y1': stems[i], 'line': {'color': 'grey', 'width': 1}} for i in range(len(stems))
+                    ],
+                xaxis={'title': {'text': '<b>Event Number</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False, 'zeroline': False},
+                yaxis={'title': {'text': '<b>Time Difference</b>', 'font': {'size': 15}, 'standoff': 30}, 'range': (-80, 20), 'tickvals': y_tickvals_5, 'ticktext': y_ticktext_5, 'showgrid': False, 'zeroline': False},
                 margin={'l': 60, 'b': 40, 't': 20, 'r': 10},
                 hovermode='x'
             )
         }
-    ),
-
-    ## header for third figure
-    html.H2(children='''
-        3) How has the intensity of my training changed over time?
-    '''), 
-
-    ## description for third figure
-    html.Div(children='''
-        A stacked area chart showing how my time was distributed between heart rate zones for each moving 6-week period between January 2019 and Present.
-    '''),
-
-    ## third figure
-    dcc.Graph(
-        id='running-intensity',
-        figure={
-            'data': [
-                ### 6-week moving average time in zone lines
-                #### HR zone 1 line
-                go.Scatter(
-                    name = 'Zone 1', 
-                    x=df_z1.week, 
-                    y=df_z1.moving_percentage,
-                    mode='lines', 
-                    stackgroup = 1, 
-                    line_color = 'rgba(255, 230, 230, 0)',
-                    hoverinfo = 'x+y',
-                    hovertemplate='<b>%{y:}%</b>'),
-                #### HR zone 2 line
-                go.Scatter(
-                    name = 'Zone 2', 
-                    x=df_z2.week, 
-                    y=df_z2.moving_percentage,
-                    mode='lines', 
-                    stackgroup = 1, 
-                    line_color = 'rgba(255, 153, 153, 0)',
-                    hoverinfo = 'x+y',
-                    hovertemplate='<b>%{y:}%</b>'),
-                #### HR zone 3 line
-                go.Scatter(
-                    name = 'Zone 3', 
-                    x=df_z3.week, 
-                    y=df_z3.moving_percentage,
-                    mode='lines', 
-                    stackgroup = 1, 
-                    line_color = 'rgba(255, 77, 77, 0)',
-                    hoverinfo = 'x+y',
-                    hovertemplate='<b>%{y:}%</b>'),
-                #### HR zone 4 line
-                go.Scatter(
-                    name = 'Zone 4', 
-                    x=df_z4.week, 
-                    y=df_z4.moving_percentage,
-                    mode='lines', 
-                    stackgroup = 1, 
-                    line_color = 'rgba(255, 0, 0, 0)',
-                    hoverinfo = 'x+y',
-                    hovertemplate='<b>%{y:}%</b>'),
-                #### HR zone 5 line
-                go.Scatter(
-                    name = 'Zone 5', 
-                    x=df_z5.week, 
-                    y=df_z5.moving_percentage,
-                    mode='lines', 
-                    stackgroup = 1, 
-                    line_color = 'rgba(179, 0, 0, 0)',
-                    hoverinfo = 'x+y',
-                    hovertemplate='<b>%{y:}%</b>')
-            ],
-            'layout': go.Layout(
-                xaxis={'title': {'text': '<b>Date</b>', 'font': {'size': 15}, 'standoff': 30}, 'showgrid': False, 'zeroline': False},
-                yaxis={'title': {'text': '<b>Percentage of Time</b>', 'font': {'size': 15}, 'standoff': 30}, 'range': (0, 100), 'tickvals': y_tickvals_3, 'ticktext': y_ticktext_3, 'showgrid': False, 'zeroline': False},
-                margin={'l': 60, 'b': 40, 't': 20, 'r': 10},
-                hovermode='x'
-            )
-        }
-    )
-])
 
 # running server
 if __name__ == '__main__':
