@@ -23,6 +23,9 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 # initiating app
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+# initiating server
+server = app.server
+
 # creating a connection to postgresql database
 with open('.secret/postgres_credentials.json', 'r') as r:
     postgres_credentials = json.load(r)
