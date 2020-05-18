@@ -17,6 +17,8 @@ from dash.dependencies import Input, Output
 
 from sklearn.neighbors import KernelDensity
 
+import os
+
 # setting style for app using CSS style sheet
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -24,7 +26,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 # initiating server
-server = app.server
+# server = app.server
 
 # creating a connection to postgresql database
 # with open('.secret/postgres_credentials.json', 'r') as r:
@@ -1095,4 +1097,6 @@ def update_figure(selected_location, selected_date):
 
 # running server
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
