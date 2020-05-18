@@ -26,17 +26,17 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 # initiating server
-# server = app.server
+server = app.server
 
 # creating a connection to postgresql database
-# with open('.secret/postgres_credentials.json', 'r') as r:
-#     postgres_credentials = json.load(r)
-#     user = postgres_credentials['user']
-#     password = postgres_credentials['password']
+with open('.secret/postgres_credentials.json', 'r') as r:
+    postgres_credentials = json.load(r)
+    host = postgres_credentials['host']
+    database = postgres_credentials['database']
+    user = postgres_credentials['user']
+    password = postgres_credentials['password']
 
-# conn = psycopg2.connect(host="localhost", database="running_data", user=user, password=password)
-
-conn = psycopg2.connect(host="ec2-54-246-85-151.eu-west-1.compute.amazonaws.com", database="dfqvuhmeq4pabp", user="bpooorimaxxgvj", password="31441882328e47160623dc84eba32bde1b20da89d7142afa1a3cdf9cf5a314e8")
+conn = psycopg2.connect(host=host, database=database, user=user, password=password)
 
 # SQL queries
 ## SQL query for first figure
@@ -421,7 +421,7 @@ app.layout = html.Div(children=[
                         )
                     }
                 )],
-                style = {'width': '90%', 'textAlign': 'center', 'margin': 'auto'}),
+                style = {'width': '96%', 'textAlign': 'center', 'margin': 'auto'}),
             html.Div(children = [
                 html.Div(children = [
                     ### header for second figure
@@ -597,7 +597,7 @@ app.layout = html.Div(children=[
                     )],
                     style = {'textAlign': 'center', 'width': '46%', 'display': 'inline-block'})
                 ], 
-                style = {'width': '90%', 'margin': 'auto'})]),
+                style = {'width': '96%', 'margin': 'auto'})]),
         ## second tab
         dcc.Tab(label='Parkrun Performance', children=[
             html.Div(children = [
@@ -669,7 +669,7 @@ app.layout = html.Div(children=[
                     ],
                     style = {'width': '40%', 'display': 'inline-block', 'textAlign': 'center'}
                 )
-            ], style = {'width': '90%', 'margin': 'auto'})
+            ], style = {'width': '96%', 'margin': 'auto'})
         ])
     ])
 ])
@@ -1040,63 +1040,6 @@ def update_figure(selected_location, selected_date):
             hovermode='x')
     }
 
-# @app.callback(
-#     Output('km-splits-comparison', 'figure'),
-#     [Input('date-dropdown-1', 'value'),
-#     Input('date-dropdown-2', 'value')])
-
-# def update_figure(selected_date_1, selected_date_2):
-
-#     split_times_1 = list(df_4.loc[df_4.date == selected_date_1].split_time)
-#     split_times_2 = list(df_4.loc[df_4.date == selected_date_2].split_time)
-
-#     data = []
-
-#     time_markers_1 = [go.Scatter(
-#         name = selected_date_1,
-#         x = split_times_1, 
-#         y = list(range(5)), 
-#         mode = 'markers', 
-#         marker = {'color': 'rgb(0, 82, 204)', 'size': 15},
-#         hoverinfo = 'skip')]
-
-#     time_markers_2 = [go.Scatter(
-#         name = selected_date_2,
-#         x = split_times_2, 
-#         y = list(range(5)), 
-#         mode = 'markers', 
-#         marker = {'color': 'rgb(0, 153, 51)', 'size': 15},
-#         hoverinfo = 'skip')]
-
-#     connect_lines = []
-#     for i in range(5):
-#         connect_lines.append(go.Scatter(
-#             x = [split_times_1[i], split_times_2[i]], 
-#             y = [i, i], 
-#             mode = 'lines', 
-#             line = {'color': 'grey', 'width': 3}, 
-#             hoverinfo = 'skip',
-#             showlegend = False))
-    
-#     data += time_markers_1 + time_markers_2 + connect_lines
-
-#     x_tickvals_7 = list(range(180, 270, 15))
-#     x_ticktext_7 = [seconds_to_MMSS(x) for x in x_tickvals_7]
-
-#     y_tickvals_7 = list(range(5))
-#     y_ticktext_7 = ['Split ' + str(y+1) for y in y_tickvals_7]
-
-#     return {
-#         'data': data,
-#         'layout': go.Layout(
-#             xaxis={'title': {'text': '<b>Split Time</b>', 'font': {'size': 15}, 'standoff': 30}, 'range': (180, 255), 'tickvals': x_tickvals_7, 'ticktext': x_ticktext_7, 'showgrid': False, 'zeroline': False},
-#             yaxis={'tickvals': y_tickvals_7, 'ticktext': y_ticktext_7, 'showgrid': False, 'zeroline': False},
-#             margin={'l': 80, 'b': 40, 't': 20, 'r': 10},
-#             hovermode='y')
-#     }
-
 # running server
 if __name__ == '__main__':
-    # app.run_server(debug=True)
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run_server(debug=True)
