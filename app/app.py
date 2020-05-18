@@ -27,12 +27,14 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server
 
 # creating a connection to postgresql database
-with open('.secret/postgres_credentials.json', 'r') as r:
-    postgres_credentials = json.load(r)
-    user = postgres_credentials['user']
-    password = postgres_credentials['password']
+# with open('.secret/postgres_credentials.json', 'r') as r:
+#     postgres_credentials = json.load(r)
+#     user = postgres_credentials['user']
+#     password = postgres_credentials['password']
 
-conn = psycopg2.connect(host="localhost", database="running_data", user=user, password=password)
+# conn = psycopg2.connect(host="localhost", database="running_data", user=user, password=password)
+
+conn = psycopg2.connect(host="ec2-54-246-85-151.eu-west-1.compute.amazonaws.com", database="dfqvuhmeq4pabp", user="bpooorimaxxgvj", password="31441882328e47160623dc84eba32bde1b20da89d7142afa1a3cdf9cf5a314e8")
 
 # SQL queries
 ## SQL query for first figure
