@@ -75,9 +75,6 @@ The cleaning process for this project involved:
 
 ## Web app
 
-Web app URL: <br/><br/>
-https://strava-exploration.herokuapp.com/ <br/><br/>
-
 Technologies used to build web app:
 
 - **Plotly**: to create visualisations. <br/><br/>
@@ -94,6 +91,11 @@ The two dashboards included in the app are:
   - Are my finish times getting faster?
   - How is my pace distributed during a race?
   - How quickly do I fatigue during a race? <br/><br/>
+  
+Web app URL: 
+https://strava-exploration.herokuapp.com/ 
 
 ## Conclusions
 
+- The intensity of my training has generally decreased since April last year. This demonstrates that I have made a conscious effort to reduce the intensity of my training post Marathon to enable a more sustained period of injury-free running. This is also reflected in the gradual increase in my weekly running distance since December last year compared with my previous two more short-lived training cycles between January 2018 and June 2018, and June 2018 and December 2018. <br/><br/>
+- I tend to experience brief periods of decline in my Parkrun performance after setting a PB at an event. This demonstrates that it is unrealistic to expect sustained periods of peak fitness throughout the year. This shows that training in extended blocks of 8-10 weeks is a more effective strategy for improving my race performances in the long run compared with trying to improve upon my times at each consecutive week.
