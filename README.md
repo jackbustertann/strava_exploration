@@ -73,7 +73,7 @@ The cleaning process for this project involved:
 
 <img src="/images/days_of_week.png"/> <br/><br/>
 
-## Web app
+## Web App
 
 Technologies used to build web app:
 
@@ -97,5 +97,10 @@ https://strava-exploration.herokuapp.com/
 
 ## Conclusions
 
-- The intensity of my training has generally decreased since April last year. This demonstrates that I have made a conscious effort to reduce the intensity of my training post Marathon to enable a more sustained period of injury-free running. This is also reflected in the gradual increase in my weekly running distance since December last year compared with my previous two more short-lived training cycles between January 2018 and June 2018, and June 2018 and December 2018. <br/><br/>
-- I tend to experience brief periods of decline in my Parkrun performance after setting a PB at an event. This demonstrates that it is unrealistic to expect sustained periods of peak fitness throughout the year. This shows that training in extended blocks of 8-10 weeks is a more effective strategy for improving my race performances in the long run compared with trying to improve upon my times at each consecutive week.
+- The intensity of my training has generally decreased since April last year. This demonstrates that I have made a conscious effort to reduce the intensity of my training post Marathon to enable a more sustained period of injury-free running. This is reflected in the gradual increase in my weekly running distance since December last year compared with my previous two, more short-lived, training cycles between January 2018 and June 2018, and June 2018 and December 2018. <br/><br/>
+- I tend to experience brief periods of decline in my Parkrun performance after setting a PB at an event. This demonstrates that it is unrealistic to expect sustained periods of peak fitness throughout the year. This shows that training in extended blocks of 8-10 weeks is a more effective strategy for improving my race performances in the long run compared with trying to improve upon my times at each event.
+
+## Limitations and Possible Extensions
+
+- Analysis of heart rate evolution for Parkruns had to be aggregrated over each km split due to the noiseness of the raw signal, especially for later splits. This is likely to be a result of an increasing divergence between my actual heart rate and my measured heartrate at higher intensities. To overcome this problem a chest-based heart rate strap could be used to control for some of the factors contributing to these inaccuracies, such as: time delay, wrist movement and outside temperature.  <br/><br/>
+- There were extended periods during both years where I did not participate in Parkrun events, mostly due to other race commitments within the club. This means I cannnot solely rely on Parkrun times as a proxy for current fitness levels. To reduce the sparsity in this data I could incorperate my finish times from other races, adjusting for differences in elevation gain and distance. Alternatively, to account for other contributing factors to fitness such as weekly training distance and intensity, I could attempt to train a linear model that outputs a real-time estimate of my fitness level.
